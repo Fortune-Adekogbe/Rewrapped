@@ -14,6 +14,7 @@ def summarize_top_tracks(tracks: List[Dict[str, Any]], audio_features: Dict[str,
                 "name": track["name"],
                 "artists": [artist["name"] for artist in track.get("artists", [])],
                 "album": track.get("album", {}).get("name"),
+                "image_url": _pick_image_url(track.get("album", {}).get("images", [])),
                 "popularity": track.get("popularity"),
                 "duration_ms": track.get("duration_ms"),
                 "preview_url": track.get("preview_url"),
@@ -205,6 +206,7 @@ def _top_tracks_in_bucket(tracks: List[Dict[str, Any]], audio_features: Dict[str
                 "id": track["id"],
                 "name": track["name"],
                 "artists": [artist["name"] for artist in track.get("artists", [])],
+                "image_url": _pick_image_url(track.get("album", {}).get("images", [])),
                 "features": _pick_features(audio_features.get(track["id"], {})),
             }
         )
@@ -218,3 +220,13 @@ def _pick_features(features: Dict[str, Any]) -> Dict[str, Any]:
         return {}
     keep = ("danceability", "energy", "valence", "acousticness", "speechiness", "tempo")
     return {key: features[key] for key in keep if key in features}
+
+
+def _pick_image_url(images: List[Dict[str, Any]]) -> Optional[str]:
+    if not images:
+        return None
+    if len(images) == 1:
+        return images[0].get("url")
+    if len(images) >= 2:
+        return images[1].get("url") or images[0].get("url")
+    return images[0].get("url")

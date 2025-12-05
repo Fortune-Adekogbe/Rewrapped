@@ -39,6 +39,10 @@ CARD_HTML = """<!DOCTYPE html>
     .title { flex: 1; margin-left: 12px; }
     .subtitle { color: var(--muted); font-size: 13px; }
     .error { color: #f87171; margin-top: 12px; }
+    .cover-row { display: flex; justify-content: center; align-items: center; gap: 0; margin-top: 12px; padding: 6px 0; }
+    .cover-bubble { width: 96px; height: 96px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 8px 22px rgba(0,0,0,0.35); background: #111; margin-left: -24px; }
+    .cover-bubble:first-child { margin-left: 0; }
+    .cover-bubble img { width: 100%; height: 100%; object-fit: cover; display: block; }
   </style>
 </head>
 <body>
@@ -80,6 +84,7 @@ CARD_HTML = """<!DOCTYPE html>
         <div id="artists"></div>
       </div>
     </div>
+    <div class="cover-row" id="covers"></div>
     <div id="error" class="error"></div>
   </div>
   <div style="width: min(960px, 95vw); display: flex; justify-content: center; margin: 0 0 32px;">
@@ -108,9 +113,22 @@ CARD_HTML = """<!DOCTYPE html>
           title: a.name,
           subtitle: (a.genres || []).slice(0,3).join(', ')
         }));
+        renderCovers('covers', data.top_tracks || []);
       } catch (e) {
         err.textContent = e.message;
       }
+    }
+    function renderCovers(containerId, list) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = '';
+      (list || []).filter(t => t.image_url).slice(0, 20).forEach((track, i) => {
+        const margin = i === 0 ? '0' : '-16px';
+        el.insertAdjacentHTML('beforeend', `
+          <div class="cover-bubble" style="margin-left:${margin}">
+            <img src="${track.image_url}" alt="${track.name || ''}">
+          </div>
+        `);
+      });
     }
     async function saveCard() {
       const card = document.querySelector('.card');
@@ -182,6 +200,10 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
     .error { color: #f87171; margin-top: 12px; }
     .pill { display: inline-flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); }
     .theme-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+    .cover-row { display: flex; justify-content: center; align-items: center; gap: 0; margin-top: 12px; padding: 6px 0; }
+    .cover-bubble { width: 96px; height: 96px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255,255,255,0.12); box-shadow: 0 8px 22px rgba(0,0,0,0.35); background: #111; margin-left: -24px; }
+    .cover-bubble:first-child { margin-left: 0; }
+    .cover-bubble img { width: 100%; height: 100%; object-fit: cover; display: block; }
   </style>
 </head>
 <body>
@@ -233,6 +255,7 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
         <div id="artists"></div>
       </div>
     </div>
+    <div class="cover-row" id="covers-extended"></div>
     <div id="error" class="error"></div>
   </div>
   <div style="width: min(1100px, 95vw); display: flex; justify-content: center; margin: 0 0 32px;">
@@ -311,9 +334,22 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
           title: a.name,
           subtitle: (a.genres || []).slice(0,3).join(', ')
         }));
+        renderCovers('covers-extended', data.top_tracks || []);
       } catch (e) {
         err.textContent = e.message;
       }
+    }
+    function renderCovers(containerId, list) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = '';
+      (list || []).filter(t => t.image_url).slice(0, 24).forEach((track, i) => {
+        const margin = i === 0 ? '0' : '-16px';
+        el.insertAdjacentHTML('beforeend', `
+          <div class="cover-bubble" style="margin-left:${margin}">
+            <img src="${track.image_url}" alt="${track.name || ''}">
+          </div>
+        `);
+      });
     }
     async function saveCard() {
       const page = document.querySelector('.page');
