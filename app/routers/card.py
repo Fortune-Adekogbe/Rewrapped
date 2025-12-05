@@ -22,7 +22,7 @@ CARD_HTML = """<!DOCTYPE html>
       --shadow: 0 20px 60px rgba(0,0,0,0.35);
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; }
     .card { width: min(960px, 95vw); padding: 28px; margin: 32px 0; background: linear-gradient(135deg, var(--panel), var(--bg)); border-radius: 20px; box-shadow: var(--shadow); border: 1px solid var(--border); }
     h1 { margin: 0 0 4px; font-size: 26px; }
     .muted { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
@@ -82,6 +82,10 @@ CARD_HTML = """<!DOCTYPE html>
     </div>
     <div id="error" class="error"></div>
   </div>
+  <div style="width: min(960px, 95vw); display: flex; justify-content: center; margin: 0 0 32px;">
+    <button id="save-basic">Save image</button>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const rangeLabels = { short: "last ~4 weeks", medium: "last ~6 months", long: "multi-year" };
     async function fetchData() {
@@ -108,6 +112,14 @@ CARD_HTML = """<!DOCTYPE html>
         err.textContent = e.message;
       }
     }
+    async function saveCard() {
+      const card = document.querySelector('.card');
+      const canvas = await html2canvas(card, { useCORS: true, scale: 2 });
+      const link = document.createElement('a');
+      link.download = 'spotify-rewrapped.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
     function render(containerId, list, mapFn) {
       const el = document.getElementById(containerId);
       el.innerHTML = '';
@@ -125,6 +137,7 @@ CARD_HTML = """<!DOCTYPE html>
       });
     }
     document.getElementById('refresh').addEventListener('click', fetchData);
+    document.getElementById('save-basic').addEventListener('click', saveCard);
     fetchData();
   </script>
 </body>
@@ -150,7 +163,7 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
       --pattern: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.03) 0, transparent 40%), radial-gradient(circle at 80% 0%, rgba(255,255,255,0.05) 0, transparent 35%);
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; }
     .page { width: min(1100px, 95vw); padding: 28px; margin: 32px 0; background: var(--pattern), linear-gradient(135deg, var(--panel), var(--bg)); border-radius: 24px; box-shadow: var(--shadow); border: 1px solid var(--border); }
     h1 { margin: 0 0 6px; font-size: 28px; }
     .muted { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
@@ -222,6 +235,10 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
     </div>
     <div id="error" class="error"></div>
   </div>
+  <div style="width: min(1100px, 95vw); display: flex; justify-content: center; margin: 0 0 32px;">
+    <button id="save-extended">Save image</button>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const rangeLabels = { short: "last ~4 weeks", medium: "last ~6 months", long: "multi-year" };
     const themes = {
@@ -298,6 +315,14 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
         err.textContent = e.message;
       }
     }
+    async function saveCard() {
+      const page = document.querySelector('.page');
+      const canvas = await html2canvas(page, { useCORS: true, scale: 2 });
+      const link = document.createElement('a');
+      link.download = 'spotify-rewrapped-themed.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
     function render(containerId, list, mapFn) {
       const el = document.getElementById(containerId);
       el.innerHTML = '';
@@ -316,6 +341,7 @@ EXTENDED_CARD_HTML = """<!DOCTYPE html>
     }
     document.getElementById('refresh').addEventListener('click', fetchData);
     document.getElementById('theme').addEventListener('change', (e) => applyTheme(e.target.value));
+    document.getElementById('save-extended').addEventListener('click', saveCard);
     applyTheme('entropy');
     fetchData();
   </script>
