@@ -30,13 +30,18 @@ Dockerized FastAPI service that assembles a Spotify Wrapped-style report using t
      --data-urlencode "redirect_uri=$REDIRECT_URI"
    ```
    The response JSON includes `refresh_token`. Keep it safe.
-4) Populate `.env` (see `.env.example`):
+
+From here you can either run locally or deploy on Render.
+
+## Run locally
+
+1) Populate `.env` (see `.env.example`):
    ```
    SPOTIFY_CLIENT_ID=...
    SPOTIFY_CLIENT_SECRET=...
    SPOTIFY_REFRESH_TOKEN=...
    ```
-5) Run locally:
+2) Start the API:
    ```bash
    python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
    pip install -r requirements.txt
@@ -49,6 +54,13 @@ Dockerized FastAPI service that assembles a Spotify Wrapped-style report using t
 docker build -t rewrapped .
 docker run --env-file .env -p 8000:8000 rewrapped
 ```
+
+## Deploy on Render
+
+1) Clone this repo or push a local version of it to GitHub (do not commit your `.env`; keep it local).
+2) In Render, create a new Web Service from the repo, choose Docker as the runtime.
+3) Set environment variables in the Render dashboard: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN` (optionally `SPOTIFY_API_BASE`, `SPOTIFY_AUTH_BASE`, `REQUEST_TIMEOUT`).
+4) Deploy. Use the public URL Render gives you (e.g., `https://your-app.onrender.com/card`, `/card/extended`).
 
 ## API
 
