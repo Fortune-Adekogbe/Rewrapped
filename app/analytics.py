@@ -171,6 +171,105 @@ def build_wrapped_payload(
     }
 
 
+def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20) -> Dict[str, Any]:
+    """
+    Collapse a month of stored plays into top tracks/artists/albums plus totals.
+    """
+    if not plays:
+        return {
+            "play_count": 0,
+            "unique_tracks": 0,
+            "unique_artists": 0,
+            "unique_albums": 0,
+            "total_minutes": 0,
+            "days_active": 0,
+            "top_tracks": [],
+            "top_artists": [],
+            "top_albums": [],
+        }
+
+    track_counter: Counter = Counter()
+    track_durations: Counter = Counter()
+    track_meta: Dict[str, Dict[str, Any]] = {}
+
+    album_counter: Counter = Counter()
+    album_durations: Counter = Counter()
+    album_meta: Dict[str, Dict[str, Any]] = {}
+
+    artist_counter: Counter = Counter()
+    artist_durations: Counter = Counter()
+
+    days = set()
+
+    for play in plays:
+        played_at = play.get("played_at")
+        if isinstance(played_at, datetime):
+            days.add(played_at.date())
+
+        track = play.get("track") or {}
+        track_id = track.get("id") or track.get("name")
+        if not track_id:
+            continue
+
+        duration_ms = track.get("duration_ms") or 0
+        track_counter[track_id] += 1
+        track_durations[track_id] += duration_ms
+
+        album = track.get("album") or {}
+        album_id = album.get("id") or album.get("name") or track_id
+        album_counter[album_id] += 1
+        album_durations[album_id] += duration_ms
+
+        track_meta[track_id] = {
+            "name": track.get("name"),
+            "artists": track.get("artists", []),
+            "album": album.get("name"),
+            "image_url": _pick_image_url(album.get("images", [])),
+        }
+        album_meta[album_id] = {
+            "name": album.get("name"),
+            "artists": track.get("artists", []),
+            "image_url": _pick_image_url(album.get("images", [])),
+        }
+
+        for artist in track.get("artists", []):
+            artist_counter[artist] += 1
+            artist_durations[artist] += duration_ms
+
+    total_minutes = round(sum(track_durations.values()) / 60000, 2)
+
+    def _list_from(counter: Counter, durations: Counter, meta: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        for key, count in counter.most_common(limit):
+            info = meta.get(key, {})
+            rows.append(
+                {
+                    "id": key,
+                    "name": info.get("name"),
+                    "artists": info.get("artists", []),
+                    "album": info.get("album"),
+                    "image_url": info.get("image_url"),
+                    "play_count": count,
+                    "minutes": round((durations.get(key, 0) or 0) / 60000, 2),
+                }
+            )
+        return rows
+
+    artist_meta = {name: {"name": name} for name in artist_counter.keys()}
+
+    return {
+        "play_count": sum(track_counter.values()),
+        "unique_tracks": len(track_counter),
+        "unique_artists": len(artist_counter),
+        "unique_albums": len(album_counter),
+        "total_minutes": total_minutes,
+        "days_active": len(days),
+        "top_tracks": _list_from(track_counter, track_durations, track_meta),
+        "top_artists": _list_from(artist_counter, artist_durations, artist_meta),
+        "top_albums": _list_from(album_counter, album_durations, album_meta),
+    }
+
+
 def _pick_track_by_feature(
     tracks: List[Dict[str, Any]], audio_features: Dict[str, Dict[str, Any]], feature_key: str, reducer
 ) -> Optional[Dict[str, Any]]:

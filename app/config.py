@@ -16,6 +16,9 @@ class Settings:
     api_base: str = "https://api.spotify.com/v1"
     auth_base: str = "https://accounts.spotify.com/api"
     request_timeout: int = 15
+    mongo_uri: str = ""
+    mongo_db: str = "rewrapped"
+    mongo_collection: str = "plays"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -30,6 +33,9 @@ class Settings:
             api_base=os.getenv("SPOTIFY_API_BASE", cls.api_base),
             auth_base=os.getenv("SPOTIFY_AUTH_BASE", cls.auth_base),
             request_timeout=int(os.getenv("REQUEST_TIMEOUT", cls.request_timeout)),
+            mongo_uri=os.getenv("MONGODB_URI", ""),
+            mongo_db=os.getenv("MONGODB_DB", cls.mongo_db),
+            mongo_collection=os.getenv("MONGODB_COLLECTION", cls.mongo_collection),
         )
 
 

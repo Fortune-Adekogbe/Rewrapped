@@ -9,3 +9,4 @@ __pycache__/
 *.log
 *.sqlite
 *.sqlite3
+_*

@@ -33,6 +33,15 @@ Dockerized FastAPI service that assembles a Spotify Wrapped-style report using t
 
 From here you can either run locally or deploy on Render.
 
+### MongoDB (for stored plays)
+
+- Provision a MongoDB database (Atlas or self-hosted).
+- Add these env vars alongside the Spotify vars:
+  - `MONGODB_URI` (SRV or standard connection string)
+  - `MONGODB_DB` (default: `rewrapped`)
+  - `MONGODB_COLLECTION` (default: `plays`)
+- Plays are keyed by `played_at` and upserted, so the collection will not contain overlapping/duplicate items.
+
 ## Run locally
 
 1) Populate `.env` (see `.env.example`):
@@ -55,6 +64,13 @@ docker build -t rewrapped .
 docker run --env-file .env -p 8000:8000 rewrapped
 ```
 
+## Scheduled ingestion (GitHub Actions)
+
+A workflow at `.github/workflows/ingest.yml` runs every 15 minutes (and can be triggered manually) to pull the most recent Spotify plays and store them in MongoDB without overlaps:
+
+- Add repository secrets: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN`, `MONGODB_URI`, and optionally `MONGODB_DB`, `MONGODB_COLLECTION`.
+- The workflow executes `python -m app.ingest_recent`, which upserts plays by `played_at` and keeps indexes fresh.
+
 ## Deploy on Render
 
 1) Clone this repo or push a local version of it to GitHub (do not commit your `.env`; keep it local).
@@ -70,9 +86,15 @@ docker run --env-file .env -p 8000:8000 rewrapped
   Medium-term (~6 months) top tracks and artists.
 - `GET /wrapped/long?top_limit=50`  
   Long-term (multi-year) top tracks and artists.
+- `GET /wrapped/yearly?year=2024&limit=20`  
+  Wrapped view backed by stored plays in MongoDB for a full calendar year. Defaults to the previous calendar year if omitted.
+- `GET /wrapped/monthly?month=11&year=2024&limit=20`  
+  Wrapped view backed by stored plays in MongoDB for a specific month/year. Defaults to the previous calendar month if omitted. Returns play counts, minutes, and top tracks/artists/albums (albums are included when available).
 - `GET /card`  
   Simple HTML card that visualizes top tracks and artists side by side. Uses `/wrapped/{short|medium|long}` under the hood; adjust range and limit via the UI controls.
 - `GET /card/extended`  
   Themed version of the card with selectable styles plus range and limit controls.
+- `GET /card/rewrapped`  
+  Card powered by stored MongoDB plays. Toggle month vs year view, choose period and limit; shows top tracks, artists, and albums with play counts and minutes listened.
 
 > Note: Spotify only provides recent playback history (~50 items per request, paged via `before/after`) so exact play stats are ignored for now.

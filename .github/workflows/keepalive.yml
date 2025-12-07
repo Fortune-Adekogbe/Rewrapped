@@ -1,0 +1,36 @@
+name: Keep workflows active
+
+on:
+  schedule:
+    - cron: "0 5 1 * *" # 05:00 UTC on the first day of each month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump keepalive file
+        run: |
+          echo "Updated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" > .github/.keepalive
+
+      - name: Commit and push (only if changed)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git status --porcelain .github/.keepalive | grep .; then
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git add .github/.keepalive
+            git commit -m "chore: keep workflows active [skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi
