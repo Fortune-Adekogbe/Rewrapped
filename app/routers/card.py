@@ -467,13 +467,14 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
         <select id="year"></select>
       </label>
       <label>
-        Top limit<br>
-        <select id="limit-monthly">
-          <option>10</option>
-          <option selected>20</option>
-          <option>30</option>
-          <option>50</option>
-        </select>
+        Top limit<br>
+        <select id="limit-monthly">
+          <option>5</option>
+          <option>10</option>
+          <option selected>20</option>
+          <option>30</option>
+          <option>50</option>
+        </select>
       </label>
       <div>
         <button id="refresh-monthly">Refresh</button>
