@@ -115,6 +115,20 @@ class SpotifyClient:
                     features[item["id"]] = item
         return features
 
+    async def get_tracks_details(self, track_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Fetch track details (including album images) for up to 50 IDs per request.
+        """
+        details: Dict[str, Dict[str, Any]] = {}
+        for i in range(0, len(track_ids), 50):
+            batch = track_ids[i : i + 50]
+            params = {"ids": ",".join(batch)}
+            data = await self._request("GET", "/tracks", params=params)
+            for item in data.get("tracks", []):
+                if item and item.get("id"):
+                    details[item["id"]] = item
+        return details
+
     @staticmethod
     def _played_at_to_ms(played_at: str) -> int:
         dt = datetime.fromisoformat(played_at.replace("Z", "+00:00"))

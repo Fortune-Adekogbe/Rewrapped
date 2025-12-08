@@ -51,6 +51,24 @@ class PlaybackStore:
         cursor = self._collection.find({"played_at": {"$gte": start, "$lt": end}}).sort("played_at", 1)
         return await cursor.to_list(length=None)
 
+    async def track_ids_missing_images(self, limit: int = 500) -> List[str]:
+        query = {
+            "track.id": {"$ne": None, "$exists": True},
+            "$or": [
+                {"track.album.images": {"$exists": False}},
+                {"track.album.images": {"$size": 0}},
+                {"track.album.images": []},
+            ],
+        }
+        ids = await self._collection.distinct("track.id", filter=query)
+        return list(ids)[:limit]
+
+    async def update_album_images(self, track_id: str, images: List[Dict[str, Any]]) -> None:
+        await self._collection.update_many(
+            {"track.id": track_id},
+            {"$set": {"track.album.images": images}},
+        )
+
     @staticmethod
     def _to_document(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         track = item.get("track") or {}
