@@ -421,7 +421,7 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
     option { background: var(--panel); color: var(--text); }
     button { cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
     button:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(0,0,0,0.25); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 14px; align-items: start; }
     .section { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
     .section h3 { margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between; }
     .meta { color: var(--muted); font-size: 13px; }
@@ -437,8 +437,8 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
     .stat .value { font-size: 22px; font-weight: 700; margin-top: 6px; }
     .album-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
     .album-card { display: flex; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,0.02); }
-    .album-cover { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; background: #0b0f1a; border: 1px solid rgba(255,255,255,0.06); }
-    .album-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .album-cover { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: #0b0f1a; border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
+    .album-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .error { color: #f87171; margin-top: 12px; }
     .footer-actions { display: flex; justify-content: center; margin: 14px 0 4px; gap: 10px; }
   </style>
@@ -555,14 +555,14 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
         document.getElementById('period-tracks').textContent = label;
         renderStats(data);
         renderList('tracks-monthly', data.top_tracks || [], (t, i) => `
-          <div class=item>
-            <div class=rank>${i+1}</div>
-            <div class=title>
-              <div>${t.name || ''}</div>
-              <div class=subtitle>${(t.artists || []).join(', ')}</div>
-            </div>
+          <div class=item>
+            <div class=rank>${i+1}</div>
+            <div class=title>
+              <div>${t.name || ''}</div>
+              <div class=subtitle>${(t.artists || []).join(', ')}</div>
+            </div>
             <div class="badge">${t.play_count || 0} plays &middot; ${t.minutes || 0} min</div>
-          </div>
+          </div>
         `);
         renderList('artists-monthly', data.top_artists || [], (a, i) => `
           <div class=item>
