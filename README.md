@@ -4,6 +4,10 @@
 - Simple card UI at `/card/rewrapped` showing number of plays, number of unique tracks, top artists, top tracks, top albums and so on. This is available on a month and year level.
 - Even simpler card UI art `/card/extended` showing top artists and top tracks over a short, medium and long time bucket as defined by spotify. Also includes basic theme color switching because why not?
 
+<p align="left">
+  <img src="assets/diagram2.svg" alt="Architecture diagram 2" width="1200">
+</p>
+
 ## Setup (Client ID, Secret, Refresh Token)
 
 1) Create a Spotify app in the [Dashboard](https://developer.spotify.com/dashboard). Add a redirect URI (e.g., `http://localhost:8080/callback`). Note the Client ID and Client Secret.
@@ -48,13 +52,13 @@ From here you can either run locally or deploy on Render.
 
 1) Populate `.env` (see `.env.example`) and either
 
-    i) Start the API in Terminal:
+    (i) Start the API in Terminal:
       ```bash
       python -m venv .venv && source .venv/bin/activate  # or .venv\Scripts\activate on Windows
       pip install -r requirements.txt
       uvicorn app.main:app --reload
       ```
-    ii) Use Docker:
+    (ii) Use Docker:
       ```bash
       docker build -t rewrapped .
       docker run --env-file .env -p 8000:8000 rewrapped
