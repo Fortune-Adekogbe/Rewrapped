@@ -171,9 +171,11 @@ def build_wrapped_payload(
     }
 
 
-def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20) -> Dict[str, Any]:
+def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20, include_et_al: bool = True) -> Dict[str, Any]:
     """
     Collapse a month of stored plays into top tracks/artists/albums plus totals.
+
+    include_et_al: if False, only the first listed artist and featured artist are counted per track.
     """
     if not plays:
         return {
@@ -212,27 +214,38 @@ def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20) -> 
             continue
 
         duration_ms = track.get("duration_ms") or 0
+        artist_list = track.get("artists", []) or []
+        artist_names = [a for a in artist_list if a] if include_et_al else ([*artist_list[:2]] if artist_list else [])
+        main_artist = artist_names[0] if artist_names else None
+
         track_counter[track_id] += 1
         track_durations[track_id] += duration_ms
 
         album = track.get("album") or {}
-        album_id = album.get("id") or album.get("name") or track_id
-        album_counter[album_id] += 1
-        album_durations[album_id] += duration_ms
+        album_name = album.get("name")
+        if album.get("id"):
+            album_key = album["id"]
+        elif album_name and main_artist:
+            album_key = f"{album_name}|{main_artist}"
+        else:
+            album_key = album_name or track_id
+
+        album_counter[album_key] += 1
+        album_durations[album_key] += duration_ms
 
         track_meta[track_id] = {
             "name": track.get("name"),
-            "artists": track.get("artists", []),
-            "album": album.get("name"),
+            "artists": artist_names,
+            "album": album_name,
             "image_url": _pick_image_url(album.get("images", [])),
         }
-        album_meta[album_id] = {
-            "name": album.get("name"),
-            "artists": track.get("artists", []),
+        album_meta[album_key] = {
+            "name": album_name,
+            "artists": artist_names,
             "image_url": _pick_image_url(album.get("images", [])),
         }
 
-        for artist in track.get("artists", []):
+        for artist in artist_names:
             artist_counter[artist] += 1
             artist_durations[artist] += duration_ms
 
