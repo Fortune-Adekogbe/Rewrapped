@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from app.config import get_settings
 from app.routers import card, wrapped
@@ -17,12 +18,9 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/")
-async def root() -> dict:
-    return {
-        "message": "Welcome to Rewrapped.",
-        "routes": ["/short", "/wrapped/medium", "/wrapped/long"],
-    }
+@app.get("/", include_in_schema=False)
+async def root() -> RedirectResponse:
+    return RedirectResponse(url="/card/rewrapped")
 
 
 app.include_router(wrapped.router)
