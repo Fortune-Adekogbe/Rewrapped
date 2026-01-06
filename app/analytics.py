@@ -197,7 +197,6 @@ def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20, inc
     album_counter: Counter = Counter()
     album_durations: Counter = Counter()
     album_meta: Dict[str, Dict[str, Any]] = {}
-    album_alias: Dict[tuple, str] = {}
 
     artist_counter: Counter = Counter()
     artist_durations: Counter = Counter()
@@ -224,20 +223,7 @@ def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20, inc
 
         album = track.get("album") or {}
         album_name = album.get("name")
-        album_id = album.get("id")
-
-        if album_id and album_name and main_artist:
-            album_alias[(album_name, main_artist)] = album_id
-
-        if not album_id and album_name and main_artist:
-            album_id = album_alias.get((album_name, main_artist))
-
-        if album_id:
-            album_key = album_id
-        elif album_name and main_artist:
-            album_key = f"{album_name}|{main_artist}"
-        else:
-            album_key = album_name or track_id
+        album_key = f"{album_name or album.get('id') or track_id}|{main_artist or 'unknown'}"
 
         album_counter[album_key] += 1
         album_durations[album_key] += duration_ms
