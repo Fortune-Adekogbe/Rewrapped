@@ -86,12 +86,12 @@ Optionally request your entire spotify listening history from Spotify via their 
   ```bash
   python -m app.ingest_dump "{path_to_dir}/Streaming_History_Audio*.json"
   ```
-- Unfortunately, the Spotify dump does not include album cover images. To fix that, run the command below a number of times until you get an update saying "No tracks missing images." Be careful with the `batch_size` (default 500) as you do not want to exceed Spotify's rate limit.
+- Unfortunately, the Spotify dump does not include album cover images and album IDs. To fix that, run the commands below. Be careful with the `batch_size` (default 1000) as you do not want to exceed Spotify's rate limit.
   ```bash
-  python -m app.backfill_images batch_size
+  python -m app.backfill_images batch_size wait_time
+  python -m app.backfill_album_ids batch_size wait_time
   ```
 
-> Note: Longer-term/power users should probably run the `backfill_images` command in a loop with some wait time between batches. I chose not to do that.
 
 ## API
 
