@@ -175,7 +175,7 @@ def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20, inc
     """
     Collapse a month of stored plays into top tracks/artists/albums plus totals.
 
-    include_et_al: if False, only the first listed artist and featured artist are counted per track.
+    include_et_al: if False, only the first listed artist and first featured artist are counted per track.
     """
     if not plays:
         return {
@@ -216,14 +216,15 @@ def summarize_month_from_plays(plays: List[Dict[str, Any]], limit: int = 20, inc
         duration_ms = track.get("duration_ms") or 0
         artist_list = track.get("artists", []) or []
         artist_names = [a for a in artist_list if a] if include_et_al else ([*artist_list[:2]] if artist_list else [])
-        main_artist = artist_names[0] if artist_names else None
-
         track_counter[track_id] += 1
         track_durations[track_id] += duration_ms
 
         album = track.get("album") or {}
+        album_id = album.get("id")
         album_name = album.get("name")
-        album_key = f"{album_name or album.get('id') or track_id}|{main_artist or 'unknown'}"
+        if not album_id:
+            continue
+        album_key = album_id
 
         album_counter[album_key] += 1
         album_durations[album_key] += duration_ms
