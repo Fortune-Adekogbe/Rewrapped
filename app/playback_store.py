@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 from typing import Any, Dict, List, Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
@@ -51,7 +52,7 @@ class PlaybackStore:
         cursor = self._collection.find({"played_at": {"$gte": start, "$lt": end}}).sort("played_at", 1)
         return await cursor.to_list(length=None)
 
-    async def track_ids_missing_images(self, limit: int = 500) -> List[str]:
+    async def track_ids_missing_images(self, limit: Optional[int] = 500) -> List[str]:
         query = {
             "track.id": {"$ne": None, "$exists": True},
             "$or": [
@@ -61,12 +62,37 @@ class PlaybackStore:
             ],
         }
         ids = await self._collection.distinct("track.id", filter=query)
+        if limit is None:
+            return list(ids)
+        return list(ids)[:limit]
+
+    async def track_ids_missing_album_id(self, limit: Optional[int] = 500) -> List[str]:
+        query = {
+            "track.id": {"$ne": None, "$exists": True},
+            "$or": [
+                {"track.album.id": {"$exists": False}},
+                {"track.album.id": None},
+                {"track.album.id": ""},
+            ],
+        }
+        ids = await self._collection.distinct("track.id", filter=query)
+        if limit is None:
+            return list(ids)
         return list(ids)[:limit]
 
     async def update_album_images(self, track_id: str, images: List[Dict[str, Any]]) -> None:
         await self._collection.update_many(
             {"track.id": track_id},
             {"$set": {"track.album.images": images}},
+        )
+
+    async def update_album_id(self, track_id: str, album_id: str, album_name: Optional[str] = None) -> None:
+        update = {"track.album.id": album_id}
+        if album_name:
+            update["track.album.name"] = album_name
+        await self._collection.update_many(
+            {"track.id": track_id},
+            {"$set": update},
         )
 
     @staticmethod
