@@ -8,36 +8,15 @@
   <img src="assets/diagram2.svg" alt="Architecture diagram 2" width="1200">
 </p>
 
-## Setup (Client ID, Secret, Refresh Token)
+## Setup (Spotify OAuth)
 
-1) Create a Spotify app in the [Dashboard](https://developer.spotify.com/dashboard). Add a redirect URI (e.g., `http://localhost:8080/callback`). Note the Client ID and Client Secret.
-2) Build the authorize URL and open it in your browser (replace `CLIENT_ID` and `REDIRECT_URI`; required scopes: `user-top-read user-read-recently-played user-read-private`):
-   ```
-   https://accounts.spotify.com/authorize?client_id=CLIENT_ID
-     &response_type=code
-     &redirect_uri=REDIRECT_URI
-     &scope=user-top-read%20user-read-recently-played%20user-read-private
-   ```
-   After you accept, Spotify redirects to `REDIRECT_URI?code=...`. Copy the `code`.
-3) In a shell (WSL/Linux/macOS), generate the Basic header and exchange the code for tokens:
-   ```bash
-   CLIENT_ID="your_client_id"
-   CLIENT_SECRET="your_client_secret"
-   CODE="the_code_from_redirect"
-   REDIRECT_URI="http://localhost:8080/callback"  # must match what you used above
+1) Create a Spotify app in the [Dashboard](https://developer.spotify.com/dashboard).
+2) Add the exact callback URL configured as `SPOTIFY_REDIRECT_URI`, such as `http://localhost:8000/spotify/callback` locally or `https://your-app.example/spotify/callback` in production.
+3) Configure the variables in `.env.example`. Use a long random value for `SPOTIFY_OAUTH_ADMIN_PASSWORD` because the login route can replace the stored Spotify authorization.
+4) Start the app and visit `/spotify/login`. Enter the configured HTTP Basic username/password and authorize Spotify. The callback stores the refresh token in MongoDB.
 
-   BASIC=$(printf "%s:%s" "$CLIENT_ID" "$CLIENT_SECRET" | base64)
-
-   curl --http1.1 -v -X POST "https://accounts.spotify.com/api/token" \
-     -H "Authorization: Basic $BASIC" \
-     -H "Content-Type: application/x-www-form-urlencoded" \
-     --data-urlencode "grant_type=authorization_code" \
-     --data-urlencode "code=$CODE" \
-     --data-urlencode "redirect_uri=$REDIRECT_URI"
-   ```
-   The response JSON includes `refresh_token`. Keep it safe.
-
-From here you can either run locally or deploy on Render.
+When Spotify expires the refresh token, API calls and scheduled ingestion fail with a reauthorization message. Visit `/spotify/login` again to replace it.
+Use HTTPS for the login and callback routes in production.
 
 ### MongoDB (for stored plays)
 
@@ -46,6 +25,7 @@ From here you can either run locally or deploy on Render.
   - `MONGODB_URI` (SRV or standard connection string)
   - `MONGODB_DB` (default: `rewrapped`)
   - `MONGODB_COLLECTION` (default: `plays`)
+  - `SPOTIFY_TOKEN_COLLECTION` (default: `spotify_tokens`)
 - Plays are keyed by `played_at` and upserted, so the collection will not contain overlapping/duplicate items.
 
 ## Run locally
@@ -68,8 +48,9 @@ From here you can either run locally or deploy on Render.
 
 1) Clone this repo or push a local version of it to GitHub (do not commit your `.env`; keep it local).
 2) In Render, create a new Web Service from the repo, choose Docker as the runtime.
-3) Set environment variables in the Render dashboard: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN` (optionally `SPOTIFY_API_BASE`, `SPOTIFY_AUTH_BASE`, `REQUEST_TIMEOUT`).
-4) Deploy. Use the public URL Render gives you (e.g., `https://your-app.onrender.com/card/rewrapped`, `/card/extended`).
+3) Set the variables from `.env.example`, using the Render callback URL for `SPOTIFY_REDIRECT_URI` and a strong `SPOTIFY_OAUTH_ADMIN_PASSWORD`.
+4) Add that exact callback URL in the Spotify developer dashboard.
+5) Deploy, visit `/spotify/login`, and complete authorization once.
 
 
 ## Data Ingestion
@@ -77,7 +58,9 @@ From here you can either run locally or deploy on Render.
 
 This implements continuous syncing. A workflow at `.github/workflows/ingest.yml` runs every 15 minutes (and can be triggered manually) to pull the most recent Spotify plays and store them in MongoDB without overlaps:
 
-- Add repository secrets: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_REFRESH_TOKEN`, `MONGODB_URI`, and optionally `MONGODB_DB`, `MONGODB_COLLECTION`.
+- Add repository secrets: `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `MONGODB_URI`, and optionally `MONGODB_DB`, `MONGODB_COLLECTION`, `SPOTIFY_TOKEN_COLLECTION`.
+- Add the repository variable `SPOTIFY_REAUTH_URL` with the public `/spotify/login` URL. A failed workflow will point you there when authorization expires.
+- `SPOTIFY_REFRESH_TOKEN` is no longer used by the workflow and can be removed from repository secrets.
 - The workflow executes `python -m app.ingest_recent`, which upserts plays by `played_at` and keeps indexes fresh.
 
 ### Data Dump
@@ -95,6 +78,10 @@ Optionally request your entire spotify listening history from Spotify via their 
 
 ## API
 
+- `GET /spotify/login`
+  Owner-only HTTP Basic entry point for Spotify authorization.
+- `GET /spotify/callback`
+  Spotify callback that validates OAuth state and stores the new refresh token in MongoDB.
 - `GET /wrapped/short?top_limit=50&recent_limit=50`  
   Short-term (~4 weeks) top tracks/artists plus the small recent playback window Spotify exposes (about the last 50 plays).
 - `GET /wrapped/medium?top_limit=50`  

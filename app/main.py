@@ -1,8 +1,9 @@
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.config import get_settings
-from app.routers import card, wrapped
+from app.routers import card, spotify_auth, wrapped
+from app.spotify_client import SpotifyReauthorizationRequired
 
 
 settings = get_settings()
@@ -23,5 +24,16 @@ async def root() -> RedirectResponse:
     return RedirectResponse(url="/card/rewrapped")
 
 
+@app.exception_handler(SpotifyReauthorizationRequired)
+async def spotify_reauthorization_required(
+    _request: Request, exc: SpotifyReauthorizationRequired
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"detail": str(exc), "reauthorization_url": settings.spotify_reauth_url},
+    )
+
+
 app.include_router(wrapped.router)
 app.include_router(card.router)
+app.include_router(spotify_auth.router)

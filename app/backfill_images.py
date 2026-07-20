@@ -6,7 +6,8 @@ from tqdm import tqdm
 
 from app.config import get_settings
 from app.playback_store import PlaybackStore
-from app.spotify_client import SpotifyClient
+from app.spotify_client import SpotifyClient, SpotifyReauthorizationRequired
+from app.token_store import SpotifyTokenStore
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -19,7 +20,8 @@ async def backfill_images(batch_limit: int = 500, pause_seconds: float = 1.0) ->
         raise ValueError("MONGODB_URI is required to backfill images.")
 
     store = PlaybackStore.from_settings(settings)
-    client = SpotifyClient(settings)
+    token_store = SpotifyTokenStore.from_settings(settings)
+    client = SpotifyClient(settings, token_store)
     await store.ensure_indexes()
 
     total_updated = 0
@@ -64,6 +66,7 @@ async def backfill_images(batch_limit: int = 500, pause_seconds: float = 1.0) ->
             logger.info("Image backfill complete; no missing images remaining.")
     finally:
         await client.close()
+        await token_store.close()
         await store.close()
 
 
@@ -72,4 +75,8 @@ if __name__ == "__main__":
 
     limit_arg = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
     pause_arg = float(sys.argv[2]) if len(sys.argv) > 2 else 1.0
-    asyncio.run(backfill_images(batch_limit=limit_arg, pause_seconds=pause_arg))
+    try:
+        asyncio.run(backfill_images(batch_limit=limit_arg, pause_seconds=pause_arg))
+    except SpotifyReauthorizationRequired as exc:
+        logger.error(str(exc))
+        raise SystemExit(2) from exc

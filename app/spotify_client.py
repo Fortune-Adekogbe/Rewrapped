@@ -1,34 +1,122 @@
 import base64
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol
 
 import httpx
 
 from app.config import Settings
 
 
+class RefreshTokenStore(Protocol):
+    async def get_refresh_token(self) -> Optional[str]: ...
+
+    async def save_refresh_token(self, refresh_token: str, scope: Optional[str] = None) -> None: ...
+
+    async def delete_refresh_token(self, reason: str = "invalid_grant") -> None: ...
+
+
+class SpotifyReauthorizationRequired(RuntimeError):
+    pass
+
+
+class SpotifyOAuthError(RuntimeError):
+    pass
+
+
 class SpotifyClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        token_store: RefreshTokenStore,
+        http_client: Optional[httpx.AsyncClient] = None,
+    ) -> None:
         self.settings = settings
+        self._token_store = token_store
         self._access_token: Optional[str] = None
         self._token_expires_at: float = 0
-        self._http = httpx.AsyncClient(timeout=self.settings.request_timeout)
+        self._http = http_client or httpx.AsyncClient(timeout=self.settings.request_timeout)
 
     async def close(self) -> None:
         await self._http.aclose()
 
-    async def _refresh_access_token(self) -> None:
+    def _basic_auth_headers(self) -> Dict[str, str]:
         credentials = f"{self.settings.client_id}:{self.settings.client_secret}".encode()
         basic = base64.b64encode(credentials).decode()
-        headers = {"Authorization": f"Basic {basic}"}
-        data = {"grant_type": "refresh_token", "refresh_token": self.settings.refresh_token}
-        response = await self._http.post(f"{self.settings.auth_base}/token", headers=headers, data=data)
+        return {"Authorization": f"Basic {basic}"}
+
+    def _reauthorization_error(self) -> SpotifyReauthorizationRequired:
+        return SpotifyReauthorizationRequired(
+            f"Spotify authorization is missing or expired. Reauthorize at {self.settings.spotify_reauth_url}"
+        )
+
+    async def _refresh_access_token(self) -> None:
+        refresh_token = await self._token_store.get_refresh_token()
+        if not refresh_token:
+            raise self._reauthorization_error()
+
+        data = {"grant_type": "refresh_token", "refresh_token": refresh_token}
+        response = await self._http.post(
+            f"{self.settings.auth_base}/token",
+            headers=self._basic_auth_headers(),
+            data=data,
+        )
+        if response.status_code == 400 and self._oauth_error_code(response) == "invalid_grant":
+            await self._token_store.delete_refresh_token(reason="invalid_grant")
+            self._access_token = None
+            self._token_expires_at = 0
+            raise self._reauthorization_error()
+
         response.raise_for_status()
         payload = response.json()
         self._access_token = payload["access_token"]
         expires_in = payload.get("expires_in", 3600)
         self._token_expires_at = time.time() + expires_in - 60  # refresh slightly early
+
+        rotated_refresh_token = payload.get("refresh_token")
+        if rotated_refresh_token:
+            await self._token_store.save_refresh_token(
+                rotated_refresh_token,
+                scope=payload.get("scope"),
+            )
+
+    async def exchange_authorization_code(self, code: str) -> None:
+        data = {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": self.settings.spotify_redirect_uri,
+        }
+        response = await self._http.post(
+            f"{self.settings.auth_base}/token",
+            headers=self._basic_auth_headers(),
+            data=data,
+        )
+        if response.is_error:
+            error_code = self._oauth_error_code(response) or f"HTTP {response.status_code}"
+            raise SpotifyOAuthError(f"Spotify authorization code exchange failed: {error_code}")
+
+        payload = response.json()
+        refresh_token = payload.get("refresh_token")
+        access_token = payload.get("access_token")
+        if not refresh_token or not access_token:
+            raise SpotifyOAuthError("Spotify did not return the required authorization tokens.")
+
+        await self._token_store.save_refresh_token(refresh_token, scope=payload.get("scope"))
+        self._access_token = access_token
+        self._token_expires_at = time.time() + payload.get("expires_in", 3600) - 60
+
+    @staticmethod
+    def _oauth_error_code(response: httpx.Response) -> Optional[str]:
+        try:
+            payload = response.json()
+        except ValueError:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        error = payload.get("error")
+        if isinstance(error, dict):
+            error = error.get("status") or error.get("message")
+        return str(error) if error else None
 
     async def _ensure_token(self) -> None:
         if not self._access_token or time.time() >= self._token_expires_at:
