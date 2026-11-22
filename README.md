@@ -1,7 +1,7 @@
 # Rewrapped
 
 - Dockerized FastAPI service that assembles a Spotify Wrapped-style report using the Spotify Web API.
-- Simple card UI at `/card/rewrapped` showing number of plays, number of unique tracks, top artists, top tracks, top albums and so on. This is available on a month and year level.
+- Simple card UI at `/card/rewrapped` showing plays, unique tracks, top artists, top tracks, and top albums for a month, a range of months within one year, or a full year.
 - Even simpler card UI art `/card/extended` showing top artists and top tracks over a short, medium and long time bucket as defined by spotify. Also includes basic theme color switching because why not?
 
 <p align="left">
@@ -92,6 +92,8 @@ Optionally request your entire spotify listening history from Spotify via their 
   Wrapped view backed by stored plays in MongoDB for a full calendar year. Defaults to the previous calendar year if omitted.
 - `GET /wrapped/monthly?month=11&year=2024&limit=20`  
   Wrapped view backed by stored plays in MongoDB for a specific month/year. Defaults to the previous calendar month if omitted. Returns play counts, minutes, and top tracks/artists/albums (albums are included when available).
+- `GET /wrapped/month-range?year=2024&start_month=3&end_month=6&limit=20`
+  Combined Wrapped view for March through June 2024. Both months are included and must belong to the selected year. The response includes the inclusive `start` timestamp and exclusive `end` timestamp in UTC.
 
 ### Basic UI
 - `GET /card`  
@@ -99,7 +101,7 @@ Optionally request your entire spotify listening history from Spotify via their 
 - `GET /card/extended`  
   Themed version of the card with selectable styles plus range and limit controls.
 - `GET /card/rewrapped`  
-  Card powered by stored MongoDB plays. Toggle month vs year view, choose period and limit; shows top tracks, artists, and albums with play counts and minutes listened.
+  Card powered by stored MongoDB plays. Choose Month, Month range, or Year, set the period and top limit, and select Refresh to see the listening totals and rankings.
 
 ## Low Hanging Fruits 🍎
 - Multi-year stats endpoint and dashboard.

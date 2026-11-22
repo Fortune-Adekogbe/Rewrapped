@@ -455,12 +455,21 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
         View<br>
         <select id="view-type">
           <option value="month" selected>Month</option>
+          <option value="range">Month range</option>
           <option value="year">Year</option>
         </select>
       </label>
       <label>
         Month<br>
-        <select id="month" data-field="month"></select>
+        <select id="month"></select>
+      </label>
+      <label hidden>
+        Start month<br>
+        <select id="start-month"></select>
+      </label>
+      <label hidden>
+        End month<br>
+        <select id="end-month"></select>
       </label>
       <label>
         Year<br>
@@ -510,17 +519,18 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    let latestPeriodRequest = 0;
 
     function populateSelectors() {
-      const monthSel = document.getElementById('month');
       const yearSel = document.getElementById('year');
-      monthSel.innerHTML = '';
-      yearSel.innerHTML = '';
-      monthNames.forEach((name, idx) => {
-        const opt = document.createElement('option');
-        opt.value = idx + 1;
-        opt.textContent = name;
-        monthSel.appendChild(opt);
+      ['month', 'start-month', 'end-month'].forEach(id => {
+        const select = document.getElementById(id);
+        monthNames.forEach((name, index) => {
+          const option = document.createElement('option');
+          option.value = index + 1;
+          option.textContent = name;
+          select.appendChild(option);
+        });
       });
       const currentYear = new Date().getFullYear();
       for (let y = currentYear; y >= currentYear - 5; y--) {
@@ -532,26 +542,59 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
       const anchor = new Date();
       anchor.setDate(1);
       anchor.setMonth(anchor.getMonth() - 1);
-      monthSel.value = anchor.getMonth() + 1;
+      document.getElementById('month').value = anchor.getMonth() + 1;
+      document.getElementById('start-month').value = 1;
+      document.getElementById('end-month').value = anchor.getMonth() + 1;
       yearSel.value = anchor.getFullYear();
     }
 
+    function syncEndMonth() {
+      const startMonth = Number(document.getElementById('start-month').value);
+      const endMonthSelect = document.getElementById('end-month');
+      for (const option of endMonthSelect.options) {
+        option.disabled = Number(option.value) < startMonth;
+      }
+      if (Number(endMonthSelect.value) < startMonth) {
+        endMonthSelect.value = startMonth;
+      }
+    }
+
     async function fetchPeriod() {
+      const request = ++latestPeriodRequest;
       const view = document.getElementById('view-type').value;
-      const month = document.getElementById('month').value;
       const year = document.getElementById('year').value;
       const limit = document.getElementById('limit-monthly').value;
       const err = document.getElementById('error-monthly');
       err.textContent = '';
+
+      const params = new URLSearchParams({ year, limit });
+      let endpoint;
+      let label;
+      if (view === 'range') {
+        const startMonth = document.getElementById('start-month').value;
+        const endMonth = document.getElementById('end-month').value;
+        const startName = monthNames[startMonth - 1];
+        const endName = monthNames[endMonth - 1];
+        params.set('start_month', startMonth);
+        params.set('end_month', endMonth);
+        endpoint = 'month-range';
+        label = startMonth === endMonth ? `${startName} ${year}` : `${startName} to ${endName} ${year}`;
+      } else if (view === 'year') {
+        endpoint = 'yearly';
+        label = year;
+      } else {
+        const month = document.getElementById('month').value;
+        params.set('month', month);
+        endpoint = 'monthly';
+        label = `${monthNames[month - 1]} ${year}`;
+      }
+
       try {
-        const url = view === 'year'
-          ? `/wrapped/yearly?year=${year}&limit=${limit}`
-          : `/wrapped/monthly?month=${month}&year=${year}&limit=${limit}`;
-        const res = await fetch(url);
+        const res = await fetch(`/wrapped/${endpoint}?${params}`);
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         const data = await res.json();
-        const label = view === 'year' ? `${year}` : `${monthNames[month - 1]} ${year}`;
-        document.getElementById('period-label').textContent = `Showing ${view === 'year' ? 'Year' : ''} ${label}`;
+        if (request !== latestPeriodRequest) return;
+        document.getElementById('period-label').textContent = `Showing ${view === 'year' ? 'Year ' : ''}${label}`;
         document.getElementById('period-tracks').textContent = label;
         renderStats(data);
         renderList('tracks-monthly', data.top_tracks || [], (t, i) => `
@@ -575,7 +618,7 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
         `);
         renderAlbums(data.top_albums || []);
       } catch (e) {
-        err.textContent = e.message;
+        if (request === latestPeriodRequest) err.textContent = e.message;
       }
     }
     function renderStats(data) {
@@ -623,10 +666,12 @@ MONTHLY_CARD_HTML = """<!DOCTYPE html>
 
     function toggleViewState() {
       const view = document.getElementById('view-type').value;
-      const monthLabel = document.querySelector('select[data-field=\"month\"]').parentElement;
-      monthLabel.style.display = view === 'month' ? 'block' : 'none';
+      document.getElementById('month').parentElement.hidden = view !== 'month';
+      document.getElementById('start-month').parentElement.hidden = view !== 'range';
+      document.getElementById('end-month').parentElement.hidden = view !== 'range';
     }
 
+    document.getElementById('start-month').addEventListener('change', syncEndMonth);
     document.getElementById('refresh-monthly').addEventListener('click', fetchPeriod);
     document.getElementById('save-monthly').addEventListener('click', saveCard);
     document.getElementById('view-type').addEventListener('change', () => {

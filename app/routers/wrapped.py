@@ -107,24 +107,24 @@ async def monthly_wrapped(
     Defaults to the previous calendar month if no params are supplied.
     """
     target_year, target_month = _resolve_month_year(year, month)
-    start = datetime(target_year, target_month, 1, tzinfo=timezone.utc)
-    end_month = 1 if target_month == 12 else target_month + 1
-    end_year = target_year + 1 if target_month == 12 else target_year
-    end = datetime(end_year, end_month, 1, tzinfo=timezone.utc)
+    summary = await _summarize_month_range(store, target_year, target_month, target_month, limit)
+    return {"month": target_month, **summary}
 
-    try:
-        plays = await store.fetch_between(start, end)
-    except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    summary = analytics.summarize_month_from_plays(plays, limit=limit)
-    return {
-        "year": target_year,
-        "month": target_month,
-        "start": start.isoformat(),
-        "end": end.isoformat(),
-        **summary,
-    }
+@router.get("/month-range")
+async def month_range_wrapped(
+    year: int = Query(..., ge=2000, le=2100, description="Calendar year for both months."),
+    start_month: int = Query(..., ge=1, le=12, description="First month to include (1-12)."),
+    end_month: int = Query(..., ge=1, le=12, description="Last month to include (1-12)."),
+    limit: int = Query(20, ge=1, le=50, description="How many top tracks/artists/albums to include."),
+    store: PlaybackStore = Depends(get_playback_store),
+) -> Dict:
+    """Wrapped-style view for an inclusive range of months within one calendar year."""
+    if end_month < start_month:
+        raise HTTPException(status_code=422, detail="End month must be on or after start month.")
+
+    summary = await _summarize_month_range(store, year, start_month, end_month, limit)
+    return {"start_month": start_month, "end_month": end_month, **summary}
 
 
 @router.get("/yearly")
@@ -137,9 +137,18 @@ async def yearly_wrapped(
     Wrapped-style view backed by stored plays in MongoDB for a specific calendar year.
     Defaults to the previous calendar year if omitted.
     """
-    target_year = _resolve_year(year)
-    start = datetime(target_year, 1, 1, tzinfo=timezone.utc)
-    end = datetime(target_year + 1, 1, 1, tzinfo=timezone.utc)
+    return await _summarize_month_range(store, _resolve_year(year), 1, 12, limit)
+
+
+async def _summarize_month_range(
+    store: PlaybackStore, year: int, start_month: int, end_month: int, limit: int
+) -> Dict:
+    start = datetime(year, start_month, 1, tzinfo=timezone.utc)
+    end = (
+        datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        if end_month == 12
+        else datetime(year, end_month + 1, 1, tzinfo=timezone.utc)
+    )
 
     try:
         plays = await store.fetch_between(start, end)
@@ -148,7 +157,7 @@ async def yearly_wrapped(
 
     summary = analytics.summarize_month_from_plays(plays, limit=limit)
     return {
-        "year": target_year,
+        "year": year,
         "start": start.isoformat(),
         "end": end.isoformat(),
         **summary,
